@@ -1,57 +1,118 @@
+from enum import Enum, auto
+import parser_common
 import field_parser
 import procedure_parser
 
-# Verison language keyword lists (v0.1)
+class Context(Enum):
+    TOP_LEVEL = auto()
+    VAR = auto()
+    CONST = auto()
+    PROC_DECL = auto()
+    PROC_BLOCK = auto()
 
-TYPE_KEYWORDS = [
-    "u32",
-    "i32",
-    "f32",
-    "bool",
-    "char",
-    "String",
-    "&str",
-]
 
-FLOW_CONTROLS = [
-    "if",
-    "elif",
-    "else",
-    "match",
-    "for",
-    "while",
-    "continue",
-    "break",
-    "nif",
-    "nfor",
-]
+class ParserState:
+    def __init__(self):
+        self.context = Context.TOP_LEVEL
+        self.line_no = 0
 
-# GOALS:
-#   .Have a unified input that takes one file only.
-#   .Have it translated into primitive Rust.
-#   .Understand how to format and structure an entire project as a rust project.
-#   .Make boilerplate to directly pipe it to cargo.
+        # tracks the proc currently "open", if any
+        self.proc_indent = None
+        self.proc_name = None
 
-"""      -TEMP-      """
+        self.declarations = []
+        self.errors = []
 
-# A written test for the parser modules, they are independent for now,
-# and act on two different files. The scope is to use the same file
-# for both parsing and then reassembly the code structure at translate-time.
+    def InProcBlock(self):
+        return self.context == Context.PROC_BLOCK
 
-def TmpParseTest():
 
-    tmp_proc_test  =  "tests/procedure_syntax_test.verison"
-    tmp_field_test =  "tests/field_syntax_test.verison"
+def GetIndent(line):
+    return parser_common.CountIndent(line)
 
-    print("{\n")
-    curr_fields =     field_parser.     OpenFile (tmp_field_test)
-    print("\n} PARSED FIELD DECLARATIONS\n\n")    
-    print("{\n")
-    curr_procedures = procedure_parser. OpenFile (tmp_proc_test)
-    print("\n} PARSED PROCEDURE DECLARATIONS \n\n")
 
-TmpParseTest()
+def ClassifyLine(line):
+    keyword, _ = parser_common.FindDeclarationKeyword(line)
 
-#we need to find the first occurence of var,const or proc in  the line
-#to asses the state of the current line.
+    if keyword == procedure_parser.proc:
+        return Context.PROC_DECL
+    if keyword == field_parser.const:
+        return Context.CONST
+    if keyword == field_parser.var:
+        return Context.VAR
+    return Context.TOP_LEVEL
 
+def UpdateState(state, line):
+    state.line_no += 1
+    stripped = line.strip()
+    if not stripped or stripped.startswith("//"):
+        return state
+
+    indent = GetIndent(line)
+    kind = ClassifyLine(line)
+
+    if state.context == Context.PROC_BLOCK and indent <= state.proc_indent:
+        state.context = Context.TOP_LEVEL
+        state.proc_indent = None
+        state.proc_name = None
+
+    if kind == Context.PROC_DECL:
+        if state.InProcBlock():
+            state.errors.append(
+                f"Line {state.line_no}: illegal nested procedure "
+                f"declared inside '{state.proc_name}': {stripped!r}")
+            return state
+
+        parsed = procedure_parser.ParseProcedureDeclaration(line)
+        parsed["kind"] = "proc"
+        parsed["line"] = state.line_no
+        parsed["raw"] = line  # keep the original text for display
+        state.declarations.append(parsed)
+
+        state.context = Context.PROC_BLOCK
+        state.proc_indent = indent
+        state.proc_name = parsed["name"]
+        return state
+
+    if kind in (Context.VAR, Context.CONST):
+        parsed = field_parser.ParseField(line)
+        parsed["kind"] = "var" if kind == Context.VAR else "const"
+        parsed["line"] = state.line_no
+        parsed["in_proc"] = state.proc_name if state.InProcBlock() else None
+        parsed["raw"] = line  # keep the original text for display
+        state.declarations.append(parsed)
+        return state
+
+    return state
+
+def ParseFile(path):
+    state = ParserState()
+    with open(path, "r") as f:
+        for line in f:
+            UpdateState(state, line.rstrip("\n"))
+    return state
+
+def PrintParsedLines(state):
+    """Prints each declaration: the original source line, then its
+    parsed dict laid out horizontally on the line below, with a
+    blank-line spacer between entries."""
+    for decl in state.declarations:
+        raw = decl.get("raw", "")
+        fields = {k: v for k, v in decl.items() if k != "raw"}
+        pretty = ", ".join(f"{k}={v!r}" for k, v in fields.items())
+
+        print(raw)
+        print(pretty)
+        print()
+
+if __name__ == "__main__":
+    import sys
+
+    path = sys.argv[1] if len(sys.argv) > 1 else "tests/field_procedure_syntax_test.verison"
+    curr_state = ParseFile(path)
+    PrintParsedLines(curr_state)
+
+    if curr_state.errors:
+        print("Errors:")
+        for err in curr_state.errors:
+            print(f"  {err}")

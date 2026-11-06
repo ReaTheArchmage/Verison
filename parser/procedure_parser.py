@@ -46,7 +46,7 @@ def ParseProcedureDeclaration(line):
     parameters = FindParameters(line, params_idx)
     FormatParameters(parameters)
 
-    return {"return type" : ret_type,
+    return {"return_type" : ret_type,
             "name": name,
             "parameters" : parameters}
 

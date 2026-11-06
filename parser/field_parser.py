@@ -51,12 +51,16 @@ def FindValue(line):
     return declar_idx, value
 
 def FindName(line, index):
-    i = index - 1
-    while i >= 0 and line[i] == " ":
-        i -= 1
-    end = i + 1
-    while i >= 0 and line[i] != " ":
-        i -= 1
-    start = i + 1
+    keyword = var if line.startswith(var, index) else const
+    start = index + len(keyword)
+
+    while start < len(line) and line[start].isspace():
+        start += 1
+
+    end = start
+
+    while end < len(line) and line[end] not in (" ", ":", "\t"):
+        end += 1
+
     return line[start:end]
 
