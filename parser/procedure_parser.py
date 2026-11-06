@@ -1,11 +1,3 @@
-import verison
-
-""" PARSE DECLARED PROCEDURES:
-    this section is used to parse declared procedures 
-    from verison to rust, line by line. For now, it
-    doesn't support multi-line declarations.
-""" 
-#type, definition_divisor, name, parameters, end_of_definition
 
 file_path = "tests/procedure_syntax_test.verison"
 proc = "proc"
@@ -53,11 +45,11 @@ def PrintPrettyLine(line):
     name, params_idx = FindName(line)
     parameters = FindParameters(line, params_idx)
     FormatParameters(parameters)
-    """
+    
     print(
         "return type: ", ret_type, "\n",
         "name: ", name, "\n",
         "parameters: ", parameters, "\n",
     )
-    """
-curr_line = OpenFile(file_path)
+
+curr_file = OpenFile(file_path)

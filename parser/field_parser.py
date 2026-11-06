@@ -1,13 +1,18 @@
-""" PARSE DECLARED FIELDS:
-    this section is used to parse declared fields 
-    from verison to rust, line by line. For now, it
-    doesn't support multi-line declarations.
-"""
-
 var,const = "var", "const"
 rust_var, rust_const = "let mut", const
 file_path = "tests/field_syntax_test.verison"
 ERR = "SYNTAX ERROR"
+
+def OpenFile(path):
+    with open(path, 'r') as f:
+        for line in f:
+            print(ParseField(line))
+
+def ParseField(line):
+    f_idx, field = FindFieldDef(line)
+    type_ = FindType(line, f_idx)
+    listed_line = {type_,field}
+    return listed_line
 
 def FindFieldDef(line):
     var_idx = line.find(var)
@@ -17,6 +22,7 @@ def FindFieldDef(line):
         return var_idx, var
     elif const_idx != -1:
         return const_idx, const
+
     return -1, ERR
 
 def FindType(line, index):
@@ -35,6 +41,7 @@ def FindValue(line):
     if not value:
         print(f"Warning: no value found after ':' in: {line!r}")
         return ""
+
     return declar_idx, value
 
 def FindName(line, index):
@@ -48,3 +55,5 @@ def FindName(line, index):
         i -= 1
     start = i + 1
     return line[start:end]
+
+curr_file = OpenFile()
