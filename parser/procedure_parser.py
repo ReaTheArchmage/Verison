@@ -1,14 +1,15 @@
-
-file_path = "tests/procedure_syntax_test.verison"
 proc = "proc"
 divisor = ':'
+
+#region HEAD DECLARATION PARSING:
 
 def OpenFile(path):
     with open(path, 'r') as f:
         for line in f:
-            PrintPrettyLine(line.rstrip("\n"))
+            print(ParseProcedureDeclaration(
+                line.rstrip("\n")))
 
-def FindProcedure(line):
+def FindProcedureDeclaration(line):
     proc_idx = line.find(proc)
     if proc_idx != -1:
         return proc, proc_idx 
@@ -24,7 +25,6 @@ def FindName(line):
     div_idx = line.find(divisor)
     tmp_name = line[div_idx:]
     end_idx = tmp_name.find("(")
-    #print(div_idx, tmp_name, end_idx)
     return line[div_idx+1: div_idx+end_idx], div_idx+end_idx
 
 def FindParameters(line, index):
@@ -39,17 +39,15 @@ def FormatParameters(params):
     for i in range(parameter_number):
         pass
 
-def PrintPrettyLine(line):
-    procedure_dec, proc_idx = FindProcedure(line)
+def ParseProcedureDeclaration(line):
+    procedure_dec, proc_idx = FindProcedureDeclaration(line)
     ret_type = FindReturnType(line, proc_idx)
     name, params_idx = FindName(line)
     parameters = FindParameters(line, params_idx)
     FormatParameters(parameters)
-    
-    print(
-        "return type: ", ret_type, "\n",
-        "name: ", name, "\n",
-        "parameters: ", parameters, "\n",
-    )
 
-curr_file = OpenFile(file_path)
+    return {"return type" : ret_type,
+            "name": name,
+            "parameters" : parameters}
+
+#endregion
