@@ -1,0 +1,16 @@
+[package]
+name = "verison"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+cranelift-codegen = "0.132"   # core IR, instruction selection, optimization passes
+cranelift-frontend = "0.132"  # FunctionBuilder, the ergonomic API for building IR
+cranelift-module = "0.132"    # module/symbol/linkage abstraction over codegen
+cranelift-object = "0.132"    # emits native .o object files (ELF on your Linux setup)
+nannou = "0.20.0"
+target-lexicon = "0.13"       # describes target triples (host/cross-compilation target)
+tokyo = "1.0.0"
+
+[profile.dev]
+incremental = true

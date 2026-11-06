@@ -1,0 +1,9 @@
+
+Verison is a multi-threaded, high performance/ high semplicity programming language compiled as Rust.
+Compiling a program in .verison simply adds one step in the pipeline, translating verison syntax into
+Rusts, before generating the IR. Verison has an internal system that focuses on memory state, asynchronous 
+threads and data flow. Since the scope is rather humble, and the idea at its core is very simple.
+
+
+PARSER:
+    

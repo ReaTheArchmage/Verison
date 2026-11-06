@@ -1,0 +1,48 @@
+/* this is the list of types available in verison, it's divided into:
+    RustPrimitives: All the rust primitive types.
+    CustomRustTypes: Data abstraction created comining primitives.
+    VerisonTypes: Data that relates exclusively to verison system. 
+*/
+
+RustPrimitives:
+
+    Primitive types:
+        Boolean — bool — e.g. let b: bool = true;
+        Numeric — integer and float — e.g. let i: i32 = 42; let f: f64 = 3.14;
+        char — e.g. let c: char = 'x';
+        str — e.g. let s: &str = "hello";
+        Never — ! — a type with no values — e.g. fn diverges() -> ! { panic!("never returns") }
+
+    Sequence types:
+        Tuple — e.g. let t: (i32, bool) = (1, true);
+        Array — e.g. let a: [i32; 3] = [1, 2, 3];
+        Slice — e.g. let s: &[i32] = &a[0..2];
+
+    User-defined types:
+        Struct — e.g. struct Point { x: i32, y: i32 }
+        Enum — e.g. enum Color { Red, Green, Blue }
+        Union — e.g. union IntOrFloat { i: i32, f: f32 }
+
+CustomRustTypes:
+    Sequence types:
+        Hash — let mut d: HashMap<&str, i32> = HashMap::from([("Sword", 11), ("Dagger", 7)]); //use std::collections::HashMap;
+
+VerisonTypes:
+
+'''rust
+
+// trait to implement when creating a thread. Has mandatory awake and update abstract functions.
+trait VerisonThread {
+
+    fn awake(&mut self);
+    fn update(&mut self);
+}
+
+// a thread is a struct that implements VerisonThread.
+struct Thread1 {}
+
+impl VerisonThread for Thread1 {
+  
+  fn awake(&mut self) {}
+  fn update(&mut self) {}
+}

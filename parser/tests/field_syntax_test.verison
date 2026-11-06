@@ -1,0 +1,32 @@
+// This is a test written to be used as file_path in field_parser.py.
+// The only goal is to parse verison declared fields and translate them
+//  to rust. 
+
+// Mutable variables
+(i32)var x : 1
+(i32)var square : x * x
+
+// Constants
+(i32)const X : 5
+
+// Numerics
+(u32)var unsigned32 : 1
+(i32)var int32 : -1
+(f32)var float32 : 1.0
+(f64)var float64 : 2.0
+//  ...
+
+// Booleans
+(bool)var myBool : true
+
+// Strings
+(char)var myChar : 'A'
+(&str)var myString : "Hello world!\n"
+(&str)var myOtherString : "Hello World!\n"
+
+// Sequentials
+((i32, bool))var myTuple : (5, true)
+([i32;5])var myArray : {1,2,3,4,5}
+(&[i32])var mySlice : &myArray[0..2]
+(HashMap<i32, bool>)var myHashMap : HashMap::from([(3, true), (6, false)])
+

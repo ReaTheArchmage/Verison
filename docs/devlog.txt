@@ -1,0 +1,71 @@
+ 
+VERISON 0.1.0 BOOK *
+MEDIA:
+“Compilers in Rust by nihalpasham”: https://www.youtube.com/watch?v=ilhSdmv6bAY
+
+DEV_LOG:
+I will be using Cranelift to generate IR code from my .verison files. Cranelift generates intermediate representation code (IR) that is then
+automatically parsed into machine instruction, handling all the architecture settings. Cranelift’s IR brakes down code into:
+function: declares entities like stack slots and function signatures. Contains blocks.
+block: a list of operations that ends with a terminator instruction.
+RUST->IR EXAMPLES:
+Variables:
+‘’‘rust fn example() { let x: i32 = 1; let y: i64 = 42; let z: f64 = 3.14; let sum: i32 = x + 7; }
+‘’‘clif function u0:0() system_v { block0: v0 = iconst.i32 1 ; x v1 = iconst.i64 42 ; y v2 = f64const 0x1.91eb851eb851fp1 ; z = 3.14 v3 = iconst.i32 7
+v4 = iadd v0, v3 ; sum = x + 7 return }
+Functions:
+‘’‘rust fn max_or_loop(a: i32, b: i32) -> i32 { let mut result = if a > b { a } else { b };
+let mut i = 0;
+while i < 3 {
+result += 1;
+i += 1;
+}
+  result
+
+}
+‘’‘clif function u0:0(i32, i32) -> i32 system_v { block0(v0: i32, v1: i32): v2 = icmp sgt v0, v1 brif v2, block1, block2
+block1:
+jump block3(v0)
+  block2:
+jump block3(v1)
+  block3(v3: i32):jump block4(v3, 0)
+  block4(v4: i32, v5: i32):v6 = icmp slt v5, 3
+brif v6, block5, block6
+  block5:
+v7 = iadd v4, 1v8 = iadd v5, 1jump block4(v7, v8)
+  block6:
+return v4
+
+; v3 = result (post if/else)
+; loop header: v4 = result, v5 = i
+; result += 1
+; i += 1
+}
+
+Using a specific command while running the program, cranelift will emit the IR code, along with a bunch of other generated code, it
+processes code in 3 main steps, resulting in 3 different files:
+.unopt.clif -> Result of the translation of source code into unoptimized IR
+.opt.clif -> Result of the optimization of .unopt.clif
+.vcode -> Last formatting step before byte code emission
+More in detail, Cranelift’s pipeline looks like this from a high level:
+CLIF
+legalizationmid-end egraph rewrites if enabled (optimization)
+lowering to virtual register code (backend-specific)
+regalloc (register allocation)
+binary emission
+
+
+
+useful crates:
+
+tokyo (added), smol 
+https://docs.rs/smol/latest/smol/
+
+On a single processor, multithreading gives the illusion of running in parallel.
+In reality, the processor is switching by using a scheduling algorithm. Or, it’s
+switching based on a combination of external inputs (interrupts) and how the threads
+have been prioritized.
+ 
+On multiple processor cores, threads are truly parallel. Individual microprocessors
+work together to achieve the result more efficiently. There are multiple parallel,
+concurrent tasks happening at once.
