@@ -1,5 +1,4 @@
 var, const = "var", "const"
-rust_var, rust_const = "let mut", const
 ERR = "SYNTAX ERROR"
 
 
