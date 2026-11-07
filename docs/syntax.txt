@@ -213,3 +213,68 @@ x %= y   or   x % y
             1* // logic here
 
 // ===========================================================================
+
+
+EXAMPLE OF nif IMPLEMENTATION IN SOURCE RUST:
+
+(i32)proc : myProc(x i32, y i32, z i32)
+    
+    x += y
+    y += z
+    z += x
+
+    nif : (x > y), (y > z), (x == y == z)
+        0*
+            x += y + z 
+            x *= y + 1
+        1*
+            x -= y - z
+            elif : (0 == x  == y == z)
+                x /= y / z
+            else :
+                x += y * z
+        2*
+            x = 0
+            y = 0
+            z = 0
+    else :
+        x *= y * z
+    
+    return : x
+
+
+fn myProc(x : i32, y : i32, z : i32) -> i32 
+{
+    x += y;
+    y += z;
+    z += x;
+
+    if (x > y)
+    {
+        x += y + z;
+        x *= y + 1;
+        if (y > z)
+        {
+            x -= y - z;
+            if (x == 0 && x == y && y == z)
+            {
+                x = 0;
+                y = 0;
+                y = 0;
+            }
+        }
+        else if (x == 0 && x == 0 && y == 0 && z == 0)
+        {
+            x /= y / z;
+        }
+        else
+        {
+            x += y * z;
+        }
+    }
+    else
+    {
+        x *= y * z
+    }
+    return x;
+}

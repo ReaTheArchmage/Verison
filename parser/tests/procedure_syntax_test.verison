@@ -1,91 +1,19 @@
-/*(i32)proc : myProc(x i32, y i32, z i32)
-    
-    x += y
-    y += z
-    z += x
+(&str)proc : getReturnPrize(tier &str)  
+    ([&str;3])var prize : {
+        "Scrap",
+        "proc",
+        "Ore"}
 
-    nif : (x > y), (y > z), (x == y == z)
-        0*
-            x += y + z 
-            x *= y + 1
-        1*
-            x -= y - z
-            elif : (0 == x  == y == z)
-                x /= y / z
-            else :
-                x += y * z
-        2*
-            x = 0
-            y = 0
-            z = 0
-    else :
-        x *= y * z
-    
-    return : x */
-
-
-(&str)proc : getRarityTier(tier_level &f32)
-    
-    if : (tier < 0.3)
-        return "Common"
-
-    elif : (tier > 0.3 and tier < 0.6)
-        return "Rare"
-
-    elif : (tier > 0.6)
-        return "Epic"
-    
-    return "Null"
-
-(&str)proc : getReturnPrize(tier &str)
-    
-    ([&str;3])var prize : {"Scrap", "Metal", "Ore"}
-
-    if   : (tier == "Common")
+    if   : (
+        tier == "Common")
         return prize[0]
-    elif : (tier == "Rare")
+    elif : (
+        tier == "Rare")
         return prize[1]
-    elif : (tier == "Epic")
+    elif : (
+        tier == "Epic")
+    elif : (
+        tier == "Proc proc")
         return prize[2]
     else :
         return tier
-
-
-
-fn myProc(x : i32, y : i32, z : i32) -> i32 
-{
-    x += y;
-    y += z;
-    z += x;
-
-    if (x > y)
-    {
-        x += y + z;
-        x *= y + 1;
-        if (y > z)
-        {
-            x -= y - z;
-            if (x == 0 && x == y && y == z)
-            {
-                x = 0;
-                y = 0;
-                y = 0;
-            }
-        }
-        else if (x == 0 && x == 0 && y == 0 && z == 0)
-        {
-            x /= y / z;
-        }
-        else
-        {
-            x += y * z;
-        }
-    }
-    else
-    {
-        x *= y * z
-    }
-    return x;
-}
-    .
-    .
