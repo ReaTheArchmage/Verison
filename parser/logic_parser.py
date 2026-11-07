@@ -1,6 +1,6 @@
 import re
 
-LOGIC_KEYWORDS = ("if", "elif", "else", "match", "for", "while", "return")
+LOGIC_KEYWORDS = ("if", "elif", "else", "match", "for", "while", "return", "nif", "nfor")
 # if/elif/match/for/while all carry their payload in a parenthesized
 # clause after an optional colon; only these get a "condition" pulled out.
 _CONDITION_FORMS = ("if", "elif", "match", "for", "while")

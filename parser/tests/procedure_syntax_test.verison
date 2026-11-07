@@ -17,3 +17,13 @@
         return prize[2]
     else :
         return tier
+
+    nfor :
+
+    % 
+
+    for i in 5 {
+        for e in 10 {
+
+        }
+    }

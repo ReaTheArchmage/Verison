@@ -90,6 +90,7 @@ class Context(Enum):
 class LineKind(Enum):
     """What a single (already-joined) line is, independent of where it
     sits structurally."""
+    HEADER = auto()
     VAR = auto()
     CONST = auto()
     PROC_DECL = auto()
@@ -199,7 +200,7 @@ if __name__ == "__main__":
     import sys
 
     print_type = sys.argv[1] if len(sys.argv) > 1 else "-a"
-    path       = "tests/procedure_syntax_test.verison"
+    path       = "tests/field_procedure_syntax_test.verison"
     curr_state = ParseFile(path)
     PrintParsedLines(curr_state, print_type)
 
