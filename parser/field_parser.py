@@ -49,7 +49,7 @@ def FindName(line, index):
     return line[start:end]
 
 
-def ParseField(line):
+def ParseFieldDeclaration(line):
     # strip all leading whitespace first (tabs for real indentation, but
     # also any stray spaces) - a field inside a proc block still starts
     # with "(type)" at position 0 once that's gone, otherwise FindType's

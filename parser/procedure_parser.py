@@ -1,7 +1,6 @@
 proc = "proc"
 divisor = ':'
 
-
 def FindProcedureDeclaration(line):
     proc_idx = line.find(proc)
     if proc_idx != -1:

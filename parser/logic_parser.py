@@ -52,9 +52,8 @@ def ParseLogicLine(line):
 
     arm_label = FindArmLabel(line)
     if arm_label is not None:
-        body = _ARM_RE.match(line).group(2)
         return {"form": "arm", "label": arm_label, "condition": None,
-                "value": None, "body": body}
+                "value": None, "body": []}
 
     keyword = FindLogicKeyword(line)
 
@@ -64,4 +63,4 @@ def ParseLogicLine(line):
 
     condition = FindCondition(line) if keyword in _CONDITION_FORMS else None
     return {"form": keyword, "label": None, "condition": condition,
-            "value": None, "body": None}
+            "value": None, "body": []}
