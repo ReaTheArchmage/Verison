@@ -22,27 +22,3 @@ RustPrimitives:
         Struct — e.g. struct Point { x: i32, y: i32 }
         Enum — e.g. enum Color { Red, Green, Blue }
         Union — e.g. union IntOrFloat { i: i32, f: f32 }
-
-CustomRustTypes:
-    Sequence types:
-        Hash — let mut d: HashMap<&str, i32> = HashMap::from([("Sword", 11), ("Dagger", 7)]); //use std::collections::HashMap;
-
-VerisonTypes:
-
-'''rust
-
-// trait to implement when creating a thread. Has mandatory awake and update abstract functions.
-trait VerisonThread {
-
-    fn awake(&mut self);
-    fn update(&mut self);
-}
-
-// a thread is a struct that implements VerisonThread.
-struct Thread1 {}
-
-impl VerisonThread for Thread1 {
-  
-  fn awake(&mut self) {}
-  fn update(&mut self) {}
-}
