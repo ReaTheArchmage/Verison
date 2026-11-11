@@ -1,6 +1,5 @@
 
 (())proc : main()
-    (i32)var x : 5
-    (i32)var y : 155
-    
-    return X % m
+    (i32)field immutableVar : "Hello"
+    (f32)var mutableVar : 5.0
+    (i32)const CONSTANT_VAR : 1

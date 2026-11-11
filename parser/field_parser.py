@@ -1,15 +1,18 @@
-var, const = "var", "const"
+var, const, field = "var", "const", "field"
 ERR = "SYNTAX ERROR"
 
 
 def FindFieldDef(line):
     var_idx = line.find(var)
     const_idx = line.find(const)
+    field_idx = line.find(field)
 
     if var_idx != -1:
         return var_idx, var
     if const_idx != -1:
         return const_idx, const
+    if field_idx != -1:
+        return field_idx, field
 
     return -1, ERR
 

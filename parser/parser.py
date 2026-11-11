@@ -157,6 +157,7 @@ class LineKind(Enum):
     """What a single (already-joined) line is, independent of where it
     sits structurally."""
     HEADER = auto()
+    FIELD = auto()
     VAR = auto()
     CONST = auto()
     PROC_DECL = auto()
@@ -212,6 +213,8 @@ def ClassifyLine(line):
         return LineKind.CONST
     if keyword == "var":
         return LineKind.VAR
+    if keyword == "field":
+        return LineKind.FIELD
     if logic_parser.IsLogicLine(line):
         return LineKind.LOGIC
     if IsAssignmentLine(line):
@@ -255,7 +258,11 @@ def _HandleProcDecl(state, line, indent):
 
 def _HandleField(state, line, kind):
     parsed = field_parser.ParseFieldDeclaration(line)
-    parsed["kind"] = "var" if kind == LineKind.VAR else "const"
+    parsed["kind"] =  "var" if (
+        kind == LineKind.VAR) else "const" if (
+        kind == LineKind.CONST) else "field" if (
+        kind == LineKind.FIELD) else ""
+    
     parsed["line"] = state.line_no
     parsed["in_proc"] = state.CurrentProcName()
     parsed["raw"] = line  # keep the original text for display
@@ -293,7 +300,7 @@ def UpdateState(state, line_no, line):
     kind = ClassifyLine(line)
     if kind == LineKind.PROC_DECL:
         _HandleProcDecl(state, line, indent)
-    elif kind in (LineKind.VAR, LineKind.CONST):
+    elif kind in (LineKind.VAR, LineKind.CONST, LineKind.FIELD):
         _HandleField(state, line, kind)
     elif kind == LineKind.LOGIC:
         _HandleLogic(state, line, indent)

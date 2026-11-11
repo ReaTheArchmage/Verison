@@ -1,3 +1,4 @@
+import os
 import re
 
 try:
@@ -6,7 +7,6 @@ except ImportError:
     # Running this file directly (python translator.py), not as part of
     # the `verison` package -- fall back to loading parser.py from its
     # sibling directory instead.
-    import os
     import sys
     sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "parser"))
     import parser
@@ -54,10 +54,13 @@ def IndentLine(line, modified_string : str) -> str:
 
 def EquateFieldLists(veri_field, rust_field):
 
-    if veri_field.field == "var":
+    if veri_field.field == "field":
         rust_field.field = "let"
-    
-    elif veri_field.field == "const":
+
+    if veri_field.field == "var":
+        rust_field.field = "let mut"
+
+    if veri_field.field == "const":
         rust_field.field = "const"
 
     rust_field.indent_lvl = veri_field.indent_lvl
@@ -146,45 +149,6 @@ def TranslateLogicalLine(input_logical_line : ListedLogicLine) -> str:
     return formatted_logic_block
 
 
-# INPUT TESTS:
-
-tmp_verison_field = ListedField(
-    indent_lvl= 2,
-    field= "var", name= "title",
-    type_= "&str", value= '"Verison"'
-)
-tmp_verison_procedure = ListedProcedure(
-    field= "proc",
-    name= "squareRoot",
-    returnType="()",
-    parameters={"x" : "f32", "steps" : "i32"}
-)
-tmp_logical_block = LogicalBlock(
-    lines= [
-        ListedLogicLine(indent_lvl=1, variable="x", operator="=", assignment="15"),
-        ListedLogicLine(indent_lvl=1, variable="guess", operator="=", assignment="x"),
-        ListedLogicLine(indent_lvl=1, variable="guess", operator="+=", assignment="x"),
-        ListedLogicLine(indent_lvl=1, variable="iter", operator="=", assignment="(guess + (guess / x)) / 2"),
-    ]
-)
-
-#TranslateFieldDef(tmp_verison_field)
-#TranslateProcDef(tmp_verison_procedure)
-#TranslateLogicalBlock(tmp_logical_block)
-
-
-## ---------------------------------------------------------------------
-## Driver: parser module -> nested Rust source, control flow included.
-## ---------------------------------------------------------------------
-# Walks the parser's *nested* entries (state.root, recursing into each
-# entry's own "body") rather than the old flat declarations list, so
-# every if/elif/else/while/for opens exactly one brace and closes
-# exactly one brace -- no more stray "}" from treating every block the
-# same as a proc body.
-
-# Verison's word-form conditionals ("is true", "and", "or", "not",
-# "inverse") aren't valid Rust; symbol forms (&&, ||, !, <, >=...) already
-# are, so they pass through untouched. Best-effort, not exhaustive.
 _COND_REPLACEMENTS = (
     (" and ", " && "), (" or ", " || "),
     ("inverse ", "!"), ("not ", "!"),
@@ -276,7 +240,7 @@ def TranslateBody(entries) -> str:
             continue
 
         FlushPending()
-        if kind in ("var", "const"):
+        if kind in ("var", "const", "field"):
             lines.append(TranslateFieldDef(parser.ToListedField(entry)))
         elif kind == "proc":
             lines.append(TranslateProc(entry))
@@ -303,9 +267,31 @@ def PrintTranslatedFile(path: str) -> None:
     print(TranslateFile(path))
 
 
+# Where main.rs gets written. Override with the VERISON_OUTPUT_DIR env
+# var (e.g. export it to your Cargo project's src/ folder) so the
+# output location lives outside this project without hardcoding it here.
+DEFAULT_OUTPUT_DIR = os.path.expanduser("~/Projects/Rust/verirust/src")
+
+
+def WriteRustOutput(rust_source: str, output_dir: str = None) -> str:
+    """Writes `rust_source` to <output_dir>/main.rs, creating the
+    directory if it doesn't exist yet. output_dir defaults to the
+    VERISON_OUTPUT_DIR env var, then DEFAULT_OUTPUT_DIR. Returns the
+    full path written."""
+    target_dir = output_dir or os.environ.get("VERISON_OUTPUT_DIR", DEFAULT_OUTPUT_DIR)
+    os.makedirs(target_dir, exist_ok=True)
+    out_path = os.path.join(target_dir, "main.rs")
+    with open(out_path, "w") as f:
+        f.write(rust_source)
+    return out_path
+
+
 if __name__ == "__main__":
     import sys
 
     # Adjust this default to wherever your .verison test files live.
     path = sys.argv[1] if len(sys.argv) > 1 else "../parser/tests/field_procedure_syntax_test_1.verison"
-    PrintTranslatedFile(path)
+    rust_source = TranslateFile(path)
+    print(rust_source)
+    out_path = WriteRustOutput(rust_source)
+    print(f"// wrote {out_path}", file=sys.stderr)
