@@ -1,3 +1,5 @@
+import re
+
 try:
     from ..parser import parser
 except ImportError:
@@ -127,9 +129,8 @@ def TranslateLogicalBlock(block : LogicalBlock):
 
     for line in block.lines:
         final_block += TranslateLogicalLine(line) + "\n"
-    final_block += "}"
 
-    return final_block
+    return final_block.rstrip("\n")
     
 
 def TranslateLogicalLine(input_logical_line : ListedLogicLine) -> str:
@@ -173,39 +174,127 @@ tmp_logical_block = LogicalBlock(
 
 
 ## ---------------------------------------------------------------------
-## Driver: parser module -> reformatted entries -> Rust source.
+## Driver: parser module -> nested Rust source, control flow included.
 ## ---------------------------------------------------------------------
+# Walks the parser's *nested* entries (state.root, recursing into each
+# entry's own "body") rather than the old flat declarations list, so
+# every if/elif/else/while/for opens exactly one brace and closes
+# exactly one brace -- no more stray "}" from treating every block the
+# same as a proc body.
 
-def TranslateParsedItem(item):
-    """Dispatches one reformatted parser item (a parser.ListedField,
-    parser.ListedProcedure, or parser.LogicalBlock) to the matching
-    Translate* function above and returns its Rust text. These classes
-    are structurally identical to this module's own ListedField/
-    ListedProcedure/LogicalBlock -- same attribute names -- so no
-    conversion is needed; the parser's objects are passed straight in.
+# Verison's word-form conditionals ("is true", "and", "or", "not",
+# "inverse") aren't valid Rust; symbol forms (&&, ||, !, <, >=...) already
+# are, so they pass through untouched. Best-effort, not exhaustive.
+_COND_REPLACEMENTS = (
+    (" and ", " && "), (" or ", " || "),
+    ("inverse ", "!"), ("not ", "!"),
+    (" is true", ""), (" == true", ""),
+)
 
-    Anything ReformatForTranslator couldn't map yet (currently the raw
-    dicts for logic_parser's control-flow entries -- if/elif/for/while/
-    match/nif/nfor/return, match arms) is turned into a visible comment
-    instead of being silently dropped or crashing the translation."""
-    if isinstance(item, parser.ListedField):
-        return TranslateFieldDef(item)
-    if isinstance(item, parser.ListedProcedure):
-        return TranslateProcDef(item)
-    if isinstance(item, parser.LogicalBlock):
-        return TranslateLogicalBlock(item)
+def TranslateCondition(condition: str) -> str:
+    cond = f" {condition.strip()} "
+    for old, new in _COND_REPLACEMENTS:
+        cond = cond.replace(old, new)
+    return cond.strip()
 
-    raw = item.get("raw", "").strip() if isinstance(item, dict) else str(item)
-    return f"// TODO: no Rust translation yet for: {raw}"
+
+# Only the range form -- "i32 x, i in 0.<4" -- is handled. The
+# collection form ("String x, i in [String;4]") and match/nif/nfor are
+# passed through as a visible TODO rather than guessed at.
+_FOR_RANGE_RE = re.compile(r"^\s*\w+\s+(\w+)\s*,\s*(\w+)\s+in\s+(.+?)\.<(.+?)\s*$")
+
+def TranslateForHeader(condition: str) -> str:
+    match = _FOR_RANGE_RE.match(condition)
+    if not match:
+        return None
+    value_name, index_name, start, end = match.groups()
+    return (f"for ({index_name.strip()}, {value_name.strip()}) "
+            f"in ({start.strip()}..{end.strip()}).enumerate()")
+
+
+def EntryIndent(entry) -> int:
+    return parser.CountIndent(entry.get("raw", ""))
+
+
+def TranslateLogicEntry(entry) -> str:
+    """One if/elif/else/while/for/return entry (parser's "logic" kind),
+    recursing into its body so nesting and braces come out balanced."""
+    indent = "\t" * EntryIndent(entry)
+    form = entry.get("form")
+
+    if form == "return":
+        value = entry.get("value")
+        return f"{indent}return{(' ' + value) if value else ''};"
+
+    if form in ("if", "elif", "while"):
+        keyword = "else if" if form == "elif" else form
+        cond = TranslateCondition(entry.get("condition") or "")
+        body = TranslateBody(entry.get("body") or [])
+        return f"{indent}{keyword} {cond} {{\n{body}\n{indent}}}"
+
+    if form == "else":
+        body = TranslateBody(entry.get("body") or [])
+        return f"{indent}else {{\n{body}\n{indent}}}"
+
+    if form == "for":
+        header = TranslateForHeader(entry.get("condition") or "")
+        if header is None:
+            raw = entry.get("raw", "").strip()
+            return f"{indent}// TODO: no Rust translation yet for: {raw}"
+        body = TranslateBody(entry.get("body") or [])
+        return f"{indent}{header} {{\n{body}\n{indent}}}"
+
+    # match / nif / nfor / arm -- logic_parser doesn't fully parse these
+    # yet either (see its own TODO), so there's nothing to translate.
+    raw = entry.get("raw", "").strip()
+    return f"{indent}// TODO: no Rust translation yet for: {raw}"
+
+
+def TranslateProc(entry) -> str:
+    header = TranslateProcDef(parser.ToListedProcedure(entry))  # ends with " {"
+    body = TranslateBody(entry.get("body") or [])
+    return f"{header}\n{body}\n}}"
+
+
+def TranslateBody(entries) -> str:
+    """Recursively translates a list of parser entries (a proc's body,
+    a block's body, or the file's top level) into Rust text. Consecutive
+    plain assignments are grouped into one LogicalBlock, matching how
+    the translator's own data shapes expect them."""
+    lines = []
+    pending = []
+
+    def FlushPending():
+        if pending:
+            lines.append(TranslateLogicalBlock(LogicalBlock(lines=list(pending))))
+            pending.clear()
+
+    for entry in entries:
+        kind = entry.get("kind")
+        if kind == "assignment":
+            pending.append(parser.ToListedLogicLine(entry))
+            continue
+
+        FlushPending()
+        if kind in ("var", "const"):
+            lines.append(TranslateFieldDef(parser.ToListedField(entry)))
+        elif kind == "proc":
+            lines.append(TranslateProc(entry))
+        elif kind == "logic":
+            lines.append(TranslateLogicEntry(entry))
+        else:
+            raw = entry.get("raw", "").strip()
+            lines.append(f"// TODO: no Rust translation yet for: {raw}")
+
+    FlushPending()
+    return "\n".join(lines)
 
 
 def TranslateFile(path: str) -> str:
-    """Parses `path` with the parser module, reformats the parsed
-    entries into the translator's input shapes, translates each one to
-    Rust, and returns the assembled source as a single string."""
+    """Parses `path`, then recursively translates its top-level entries
+    (and everything nested under them) into a single Rust source string."""
     state = parser.ParseFile(path)
-    reformatted = parser.ReformatForTranslator(state.declarations)
-    return "\n".join(TranslateParsedItem(item) for item in reformatted)
+    return TranslateBody(state.root)
 
 
 def PrintTranslatedFile(path: str) -> None:

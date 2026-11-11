@@ -181,6 +181,7 @@ class ParserState:
         self.line_no = 0
         self.stack = []          # open Frames, innermost last
         self.declarations = []   # flat, ordered log of every parsed line
+        self.root = []           # top-level entries only (nest via entry["body"])
         self.errors = []
 
     def InProcBlock(self):
@@ -232,6 +233,8 @@ def _AppendEntry(state, entry):
     container = state.CurrentContainer()
     if container is not None:
         container.append(entry)
+    else:
+        state.root.append(entry)
     state.declarations.append(entry)
 
 
@@ -356,43 +359,6 @@ def ToListedLogicLine(entry):
         operator=entry["operator"],
         assignment=entry["assignment"],
     )
-
-
-def ReformatForTranslator(entries):
-    """Reformats a flat, ordered list of parsed entries (e.g.
-    state.declarations, or one block's "body") into the translator's
-    input structures: a ListedField for each var/const, a
-    ListedProcedure for each proc signature, and a LogicalBlock for each
-    run of consecutive assignment statements.
-
-    Control-flow entries (if/elif/else/for/while/match/nif/nfor/return,
-    match arms -- logic_parser's "logic" kind) have no translator
-    structure defined yet, so they're passed through unchanged for now
-    rather than silently dropped."""
-    output = []
-    pending = []
-
-    def FlushPending():
-        if pending:
-            output.append(LogicalBlock(lines=list(pending)))
-            pending.clear()
-
-    for entry in entries:
-        kind = entry.get("kind")
-        if kind == "assignment":
-            pending.append(ToListedLogicLine(entry))
-        elif kind in ("var", "const"):
-            FlushPending()
-            output.append(ToListedField(entry))
-        elif kind == "proc":
-            FlushPending()
-            output.append(ToListedProcedure(entry))
-        else:
-            FlushPending()
-            output.append(entry)  # not yet covered -- see docstring
-
-    FlushPending()
-    return output
 
 
 if __name__ == "__main__":
