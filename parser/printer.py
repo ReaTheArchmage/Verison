@@ -49,7 +49,6 @@ def PrintParsedLines(state, debug_type):
         for col in columns
     }
 
-    # Spreadsheet-style formatting
     def separator():
         return "+" + "+".join("-" * (widths[col] + 2) for col in columns) + "+"
 

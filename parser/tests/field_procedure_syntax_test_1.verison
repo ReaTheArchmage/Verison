@@ -71,6 +71,8 @@
             playerAlive = false
             break
 
+    (i32)var processedNodes : 0
+    
     for : (i32 item, i in 0.<4)
 
         if : (inventory[i] > 0)
@@ -78,31 +80,6 @@
         else :
             inventoryFull = false
 
-    nif : (playerHealth < 80), (playerHealth < 40), (playerHealth < 10)
-
-        0*
-            playerEnergy -= 5
-
-        1*
-            playerEnergy -= 15
-            relayStatus = "WARNING"
-
-        2*
-            playerAlive = false
-            relayStatus = "CRITICAL"
-
-    (i32)var processedNodes : 0
-
-    nfor : (i32 sector in 0.<3), (i32 node in 0.<4)
-
-        0*
-            processedNodes += 1
-
-        1*
-            if : (node % 2 is 0)
-                playerCredits += 10
-            else :
-                playerCredits += 5
 
     if : (playerAlive && playerHealth > 0)
         relayStatus = "OPERATIONAL"

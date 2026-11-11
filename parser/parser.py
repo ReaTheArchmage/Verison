@@ -1,11 +1,61 @@
+from dataclasses import dataclass
 from enum import Enum, auto
 import re
-import field_parser
-import procedure_parser
-import logic_parser
-import printer
-from  ..translator import translator
+
+try:
+    from . import field_parser
+    from . import procedure_parser
+    from . import logic_parser
+    from . import printer
+except ImportError:
+    # Running this file directly (python parser.py), not as part of the
+    # `verison` package -- fall back to plain sibling imports.
+    import field_parser
+    import procedure_parser
+    import logic_parser
+    import printer
+
 _DECLARATION_RE = re.compile(r"^\s*\(.*?\)\s*(\w+)")
+
+# Plain assignment / operation statements, e.g. "x = 15" or "guess += x".
+# These aren't declarations (field_parser's domain) or control-flow
+# keywords (logic_parser's domain), so they're recognized here.
+_ASSIGNMENT_RE = re.compile(r"^(\w+)\s*(\+=|-=|\*=|/=|%=|=)\s*(.+)$")
+
+
+## ---------------------------------------------------------------------
+## Translator input structures -- what ReformatForTranslator() emits.
+## ---------------------------------------------------------------------
+
+@dataclass
+class ListedField:
+    indent_lvl: int
+    field: str
+    name: str
+    type_: str
+    value: str
+
+
+@dataclass
+class ListedProcedure:
+    field: str
+    name: str
+    returnType: str
+    parameters: dict
+
+
+@dataclass
+class ListedLogicLine:
+    indent_lvl: int
+    variable: str
+    operator: str
+    assignment: str
+
+
+@dataclass
+class LogicalBlock:
+    lines: list
+
 
 def CountIndent(line):
     """Indentation level as an unsigned int. Each leading tab counts as
@@ -40,6 +90,22 @@ def FindDeclarationKeyword(line):
     if not match:
         return None, -1
     return match.group(1), match.start(1)
+
+
+def IsAssignmentLine(line):
+    """'x = 15' / 'guess += x' -- a bare variable-operator-value
+    statement, as opposed to a declaration or a control-flow keyword."""
+    return _ASSIGNMENT_RE.match(line.strip()) is not None
+
+
+def ParseAssignmentLine(line):
+    """'x = 15' -> {"variable": "x", "operator": "=", "assignment": "15"}
+    'guess += x' -> {"variable": "guess", "operator": "+=", "assignment": "x"}
+    Caller must check IsAssignmentLine(line) first."""
+    match = _ASSIGNMENT_RE.match(line.strip())
+    return {"variable": match.group(1),
+            "operator": match.group(2),
+            "assignment": match.group(3).strip()}
 
 _OPEN_TO_CLOSE = {"(": ")", "[": "]", "{": "}"}
 _CLOSERS = set(_OPEN_TO_CLOSE.values())
@@ -95,6 +161,7 @@ class LineKind(Enum):
     CONST = auto()
     PROC_DECL = auto()
     LOGIC = auto()
+    ASSIGNMENT = auto()
     OTHER = auto()
 
 
@@ -146,6 +213,8 @@ def ClassifyLine(line):
         return LineKind.VAR
     if logic_parser.IsLogicLine(line):
         return LineKind.LOGIC
+    if IsAssignmentLine(line):
+        return LineKind.ASSIGNMENT
     return LineKind.OTHER
 
 
@@ -203,6 +272,15 @@ def _HandleLogic(state, line, indent):
         state.stack.append(Frame(indent=indent, entry=parsed))
 
 
+def _HandleAssignment(state, line):
+    parsed = ParseAssignmentLine(line)
+    parsed["kind"] = "assignment"
+    parsed["line"] = state.line_no
+    parsed["in_proc"] = state.CurrentProcName()
+    parsed["raw"] = line
+    _AppendEntry(state, parsed)
+
+
 def UpdateState(state, line_no, line):
     state.line_no = line_no
     indent = CountIndent(line)
@@ -216,6 +294,8 @@ def UpdateState(state, line_no, line):
         _HandleField(state, line, kind)
     elif kind == LineKind.LOGIC:
         _HandleLogic(state, line, indent)
+    elif kind == LineKind.ASSIGNMENT:
+        _HandleAssignment(state, line)
     return state
 
 
@@ -224,6 +304,95 @@ def ParseFile(path):
     for line_no, line in ReadLogicalLines(path):
         UpdateState(state, line_no, line)
     return state
+
+
+## ---------------------------------------------------------------------
+## Reformatting: turn parsed entries into the translator's input shapes.
+## ---------------------------------------------------------------------
+
+def ToListedField(entry):
+    """Reformats a var/const entry (as produced by _HandleField) into a
+    ListedField."""
+    return ListedField(
+        indent_lvl=CountIndent(entry["raw"]),
+        field=entry["field"],
+        name=entry["name"],
+        type_=entry["type"],
+        value=entry["value"],
+    )
+
+
+def SplitParameters(raw_params):
+    """'x f32, steps i32' -> {"x": "f32", "steps": "i32"}"""
+    params = {}
+    if not raw_params:
+        return params
+    for piece in raw_params.split(","):
+        piece = piece.strip()
+        if not piece:
+            continue
+        name, _, type_ = piece.rpartition(" ")
+        params[name.strip()] = type_.strip()
+    return params
+
+
+def ToListedProcedure(entry):
+    """Reformats a proc entry (as produced by _HandleProcDecl) into a
+    ListedProcedure."""
+    return ListedProcedure(
+        field=entry["kind"],  # always "proc"
+        name=entry["name"],
+        returnType=entry["return_type"],
+        parameters=SplitParameters(entry["parameters"]),
+    )
+
+
+def ToListedLogicLine(entry):
+    """Reformats an assignment entry (as produced by _HandleAssignment)
+    into a ListedLogicLine."""
+    return ListedLogicLine(
+        indent_lvl=CountIndent(entry["raw"]),
+        variable=entry["variable"],
+        operator=entry["operator"],
+        assignment=entry["assignment"],
+    )
+
+
+def ReformatForTranslator(entries):
+    """Reformats a flat, ordered list of parsed entries (e.g.
+    state.declarations, or one block's "body") into the translator's
+    input structures: a ListedField for each var/const, a
+    ListedProcedure for each proc signature, and a LogicalBlock for each
+    run of consecutive assignment statements.
+
+    Control-flow entries (if/elif/else/for/while/match/nif/nfor/return,
+    match arms -- logic_parser's "logic" kind) have no translator
+    structure defined yet, so they're passed through unchanged for now
+    rather than silently dropped."""
+    output = []
+    pending = []
+
+    def FlushPending():
+        if pending:
+            output.append(LogicalBlock(lines=list(pending)))
+            pending.clear()
+
+    for entry in entries:
+        kind = entry.get("kind")
+        if kind == "assignment":
+            pending.append(ToListedLogicLine(entry))
+        elif kind in ("var", "const"):
+            FlushPending()
+            output.append(ToListedField(entry))
+        elif kind == "proc":
+            FlushPending()
+            output.append(ToListedProcedure(entry))
+        else:
+            FlushPending()
+            output.append(entry)  # not yet covered -- see docstring
+
+    FlushPending()
+    return output
 
 
 if __name__ == "__main__":
