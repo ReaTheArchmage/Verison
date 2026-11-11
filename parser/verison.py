@@ -4,9 +4,8 @@ import field_parser
 import procedure_parser
 import logic_parser
 import printer
-
+from  ..translator import translator
 _DECLARATION_RE = re.compile(r"^\s*\(.*?\)\s*(\w+)")
-
 
 def CountIndent(line):
     """Indentation level as an unsigned int. Each leading tab counts as
